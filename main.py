@@ -1,7 +1,10 @@
-from flask import Flask, render_template, request
-
+from flask import Flask, render_template, request, redirect, send_file
+from scrapper import get_jobs
+from exporter import save_to_file
 
 app = Flask("SuperScrapper")
+
+db = {}
 
 
 @app.route("/")
@@ -11,22 +14,40 @@ def home():
 
 @app.route("/report")
 def report():
+
     word = request.args.get('word')
-    return render_template("report.html", searching_by=word)
+    if word:
+        word = word.lower()
+        existingJobs = db.get(word)
+        if existingJobs:
+            jobs = existingJobs
+        else:
+            jobs = get_jobs(word)
+            db[word] = jobs
+    else:
+        return redirect("/")
+    return render_template(
+        "report.html",
+        searching_by=word,
+        resultNumber=len(jobs),
+        jobs=jobs
+    )
+
+
+@app.route("/export")
+def export():
+    try:
+        word = request.args.get('word')
+        if not word:
+            raise Exception()
+        word = word.lower()
+        jobs = db.get(word)  # fake db.
+        if not jobs:
+            raise Exception()
+        save_to_file(jobs)
+        return send_file("jobs.csv")
+    except:
+        return redirect("/")
 
 
 app.run()
-
-
-"""
-from indeed import get_jobs as get_indeed_jobs
-from stackoverflow import get_jobs as get_stackoverflow_jobs
-from save import save_to_file
-
-stackoverflow_jobs = get_stackoverflow_jobs()
-indeed_jobs = get_indeed_jobs()
-
-
-jobs = indeed_jobs + stackoverflow_jobs
-save_to_file(jobs)
-"""
